@@ -7,6 +7,7 @@ using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Data.Odbc;
+using System.Linq;
 
 namespace ZYSQL
 {
@@ -921,7 +922,7 @@ namespace ZYSQL
         {
             lock (_lockThis)
             {
-                obj = new T();
+             
 
                 Command.CommandText = sql;
                 Command.Parameters.Clear();
@@ -929,8 +930,7 @@ namespace ZYSQL
                     Command.Parameters.AddRange(parem);
                 Command.CommandType = bolIsProcedure ? CommandType.StoredProcedure : CommandType.Text;
                 var objList = Deserializer<T>(Command);
-                if (objList.Count > 0)
-                    obj = objList[0];
+                obj = objList.FirstOrDefault<T>();
                 return objList;
             }
         }
@@ -1031,12 +1031,9 @@ namespace ZYSQL
         /// <returns>结果数量</returns>
         public async Task<T> SqlExcuteSelectFirstAsync<T>(string sql, params OdbcParameter[] parem) where T : class, new()
         {
-            var i = (await SqlExcuteSelectObjectAsync<T>(sql, false, CancellationToken.None, parem));
+           return (await SqlExcuteSelectObjectAsync<T>(sql, false, CancellationToken.None, parem)).FirstOrDefault<T>();
 
-            if (i.Count > 0)            
-                return i[0];            
-            else
-                return null;
+           
         }
 
         /// <summary>
@@ -1049,16 +1046,10 @@ namespace ZYSQL
         /// <returns>结果数量</returns>
         public async Task<T> SqlExcuteSelectFirstAsync<T>(string sql, CancellationToken token, params OdbcParameter[] parem) where T : class, new()
         {
-            T first = null;
+           
 
-            var i = (await SqlExcuteSelectObjectAsync<T>(sql, false, token, parem)).Count;
+            return  (await SqlExcuteSelectObjectAsync<T>(sql, false, token, parem)).FirstOrDefault<T>();
 
-            if (i > 0)
-            {
-                return first;
-            }
-            else
-                return null;
         }
 
 

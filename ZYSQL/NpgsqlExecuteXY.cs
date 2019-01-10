@@ -4,15 +4,13 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
-using System.Data.SqlClient;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
-
-
+using Npgsql;
 namespace ZYSQL
 {
-    public class SqlExecuteXY : ListDeserializerBase, IDisposable
+    public class NpgSqlExecuteXY : ListDeserializerBase, IDisposable
     {
         private readonly object _lockThis = new object();
 
@@ -22,9 +20,9 @@ namespace ZYSQL
         /// <summary>
         ///     CONN连接对象池
         /// </summary>
-        public readonly Dictionary<string, ObjectPool<SqlConnection>> DbConnPool;
+        public readonly Dictionary<string, ObjectPool<NpgsqlConnection>> DbConnPool;
 
-        public readonly ObjectPool<SqlCommand> DbCommandPool;
+        public readonly ObjectPool<NpgsqlCommand> DbCommandPool;
 
 
         #endregion
@@ -69,10 +67,10 @@ namespace ZYSQL
 
         #endregion
 
-        public SqlExecuteXY()
+        public NpgSqlExecuteXY()
         {
-            DbConnPool = SqlInstance.Instance.GetSqlConnectionPool();
-            DbCommandPool= SqlInstance.Instance.GetSqlCommandPool();
+            DbConnPool = SqlInstance.Instance.GetNpgsqlConnectionPool();
+            DbCommandPool= SqlInstance.Instance.GetNpgsqlCommandPool();
 
 
             DbConn = DbConnPool["DefautConnectionString"].GetObject();
@@ -85,10 +83,10 @@ namespace ZYSQL
         }
 
 
-        public SqlExecuteXY(string key)
+        public NpgSqlExecuteXY(string key)
         {
-            DbConnPool = SqlInstance.Instance.GetSqlConnectionPool();
-            DbCommandPool = SqlInstance.Instance.GetSqlCommandPool();
+            DbConnPool = SqlInstance.Instance.GetNpgsqlConnectionPool();
+            DbCommandPool = SqlInstance.Instance.GetNpgsqlCommandPool();
 
             DbConn = DbConnPool[key].GetObject();
 
@@ -105,14 +103,14 @@ namespace ZYSQL
         /// <summary>
         ///     数据库连接器
         /// </summary>
-        public SqlConnection DbConn { get; protected set; }
+        public NpgsqlConnection DbConn { get; protected set; }
 
         /// <summary>
         ///     命令
         /// </summary>
-        public SqlCommand Command { get; protected set; }
+        public NpgsqlCommand Command { get; protected set; }
 
-        private SqlTransaction Trans { get; set; }
+        private NpgsqlTransaction Trans { get; set; }
 
         public string Key { get; }
 
@@ -199,7 +197,7 @@ namespace ZYSQL
         /// <param name="sql">SQL语句</param>
         /// <param name="parem">参数</param>
         /// <returns></returns>
-        public int SqlExecuteNonQuery(string sql, params SqlParameter[] parem)
+        public int SqlExecuteNonQuery(string sql, params NpgsqlParameter[] parem)
         {
             return SqlExecuteNonQuery(sql, false, parem);
         }
@@ -211,7 +209,7 @@ namespace ZYSQL
         /// <param name="parem">参数</param>
         /// <param name="bolIsProcedure">是否存储过程</param>
         /// <returns>行数</returns>
-        public int SqlExecuteNonQuery(string sql, bool bolIsProcedure, params SqlParameter[] parem)
+        public int SqlExecuteNonQuery(string sql, bool bolIsProcedure, params NpgsqlParameter[] parem)
         {
             lock (_lockThis)
             {
@@ -280,7 +278,7 @@ namespace ZYSQL
         /// <param name="sql">SQL语句</param>
         /// <param name="parem">参数</param>
         /// <returns></returns>
-        public async Task<int> SqlExecuteNonQueryAsync(string sql, params SqlParameter[] parem)
+        public async Task<int> SqlExecuteNonQueryAsync(string sql, params NpgsqlParameter[] parem)
         {
             return await SqlExecuteNonQueryAsync(sql, false, CancellationToken.None, parem);
         }
@@ -293,7 +291,7 @@ namespace ZYSQL
         /// <param name="parem">参数</param>
         /// <param name="cannToken">CancellationToken</param>
         /// <returns></returns>
-        public async Task<int> SqlExecuteNonQueryAsync(string sql, CancellationToken canntoken,params SqlParameter[] parem)
+        public async Task<int> SqlExecuteNonQueryAsync(string sql, CancellationToken canntoken,params NpgsqlParameter[] parem)
         {
             return await SqlExecuteNonQueryAsync(sql, false, canntoken, parem);
         }
@@ -306,7 +304,7 @@ namespace ZYSQL
         /// <param name="parem">参数</param>
         /// <param name="cannToken">CancellationToken</param>
         /// <returns></returns>
-        public async Task<int> SqlExecuteNonQueryAsync(string sql, bool bolIsProcedure, params SqlParameter[] parem)
+        public async Task<int> SqlExecuteNonQueryAsync(string sql, bool bolIsProcedure, params NpgsqlParameter[] parem)
         {
             return await SqlExecuteNonQueryAsync(sql, false, CancellationToken.None, parem);
         }
@@ -318,7 +316,7 @@ namespace ZYSQL
         /// <param name="parem">参数</param>
         /// <param name="bolIsProcedure">是否存储过程</param>
         /// <returns>行数</returns>
-        public async Task<int> SqlExecuteNonQueryAsync(string sql, bool bolIsProcedure, CancellationToken cannToken, params SqlParameter[] parem)
+        public async Task<int> SqlExecuteNonQueryAsync(string sql, bool bolIsProcedure, CancellationToken cannToken, params NpgsqlParameter[] parem)
         {
 
             Command.CommandText = sql;
@@ -340,7 +338,7 @@ namespace ZYSQL
         /// <param name="sql">SQL语句</param>
         /// <param name="commandBehavior"></param>
         /// <returns></returns>
-        public SqlDataReader SqlExecuteReader(string sql,
+        public NpgsqlDataReader SqlExecuteReader(string sql,
             CommandBehavior commandBehavior = CommandBehavior.Default)
         {
             return SqlExecuteReader(sql, commandBehavior, null);
@@ -353,7 +351,7 @@ namespace ZYSQL
         /// <param name="bolIsProcedure">是否存储过程</param>
         /// <param name="commandBehavior"></param>
         /// <returns></returns>
-        public SqlDataReader SqlExecuteReader(string sql, bool bolIsProcedure,
+        public NpgsqlDataReader SqlExecuteReader(string sql, bool bolIsProcedure,
             CommandBehavior commandBehavior = CommandBehavior.Default)
         {
             return SqlExecuteReader(sql, bolIsProcedure, commandBehavior, null);
@@ -366,8 +364,8 @@ namespace ZYSQL
         /// <param name="commandBehavior"></param>
         /// <param name="parem">参数</param>
         /// <returns></returns>
-        public SqlDataReader SqlExecuteReader(string sql, CommandBehavior commandBehavior,
-            params SqlParameter[] parem)
+        public NpgsqlDataReader SqlExecuteReader(string sql, CommandBehavior commandBehavior,
+            params NpgsqlParameter[] parem)
         {
             return SqlExecuteReader(sql, false, commandBehavior, parem);
         }
@@ -380,8 +378,8 @@ namespace ZYSQL
         /// <param name="parem">参数</param>
         /// <param name="bolIsProcedure">是否存储过程</param>
         /// <returns></returns>
-        public SqlDataReader SqlExecuteReader(string sql, bool bolIsProcedure, CommandBehavior commandBehavior,
-            params SqlParameter[] parem)
+        public NpgsqlDataReader SqlExecuteReader(string sql, bool bolIsProcedure, CommandBehavior commandBehavior,
+            params NpgsqlParameter[] parem)
         {
             lock (_lockThis)
             {
@@ -403,7 +401,7 @@ namespace ZYSQL
         /// <param name="sql">SQL语句</param>
         /// <param name="commandBehavior"></param>
         /// <returns></returns>
-        public async Task<SqlDataReader> SqlExecuteReaderAsync(string sql,
+        public async Task<DbDataReader> SqlExecuteReaderAsync(string sql,
             CommandBehavior commandBehavior = CommandBehavior.Default)
         {
             return await SqlExecuteReaderAsync(sql, commandBehavior, null);
@@ -415,7 +413,7 @@ namespace ZYSQL
         /// <param name="sql">SQL语句</param>
         /// <param name="commandBehavior"></param>
         /// <returns></returns>
-        public async Task<SqlDataReader> SqlExecuteReaderAsync(string sql,CancellationToken canToken)
+        public async Task<DbDataReader> SqlExecuteReaderAsync(string sql,CancellationToken canToken)
         {
             return await SqlExecuteReaderAsync(sql, CommandBehavior.Default, canToken, null);
         }
@@ -426,7 +424,7 @@ namespace ZYSQL
         /// <param name="sql">SQL语句</param>
         /// <param name="commandBehavior"></param>
         /// <returns></returns>
-        public async Task<SqlDataReader> SqlExecuteReaderAsync(string sql, CancellationToken canToken, params SqlParameter[] parem)
+        public async Task<DbDataReader> SqlExecuteReaderAsync(string sql, CancellationToken canToken, params NpgsqlParameter[] parem)
         {
             return await SqlExecuteReaderAsync(sql, CommandBehavior.Default, canToken, parem);
         }
@@ -438,7 +436,7 @@ namespace ZYSQL
         /// <param name="bolIsProcedure">是否存储过程</param>
         /// <param name="commandBehavior"></param>
         /// <returns></returns>
-        public async Task<SqlDataReader> SqlExecuteReaderAsync(string sql, bool bolIsProcedure,
+        public async Task<DbDataReader> SqlExecuteReaderAsync(string sql, bool bolIsProcedure,
             CommandBehavior commandBehavior = CommandBehavior.Default)
         {
             return await SqlExecuteReaderAsync(sql, bolIsProcedure, commandBehavior, CancellationToken.None, null);
@@ -451,8 +449,8 @@ namespace ZYSQL
         /// <param name="bolIsProcedure">是否存储过程</param>
         /// <param name="commandBehavior"></param>
         /// <returns></returns>
-        public async Task<SqlDataReader> SqlExecuteReaderAsync(string sql, bool bolIsProcedure,
-            CommandBehavior commandBehavior = CommandBehavior.Default, params SqlParameter[] parem)
+        public async Task<DbDataReader> SqlExecuteReaderAsync(string sql, bool bolIsProcedure,
+            CommandBehavior commandBehavior = CommandBehavior.Default, params NpgsqlParameter[] parem)
         {
             return await SqlExecuteReaderAsync(sql, bolIsProcedure, commandBehavior, CancellationToken.None, parem);
         }
@@ -464,7 +462,7 @@ namespace ZYSQL
         /// <param name="bolIsProcedure">是否存储过程</param>
         /// <param name="commandBehavior"></param>
         /// <returns></returns>
-        public async Task<SqlDataReader> SqlExecuteReaderAsync(string sql, bool bolIsProcedure, CancellationToken canToken )
+        public async Task<DbDataReader> SqlExecuteReaderAsync(string sql, bool bolIsProcedure, CancellationToken canToken )
         {
             return await SqlExecuteReaderAsync(sql, bolIsProcedure, CommandBehavior.Default, CancellationToken.None, null);
         }
@@ -477,8 +475,8 @@ namespace ZYSQL
         /// <param name="commandBehavior"></param>
         /// <param name="parem">参数</param>
         /// <returns></returns>
-        public async Task<SqlDataReader> SqlExecuteReaderAsync(string sql, CommandBehavior commandBehavior,
-            params SqlParameter[] parem)
+        public async Task<DbDataReader> SqlExecuteReaderAsync(string sql, CommandBehavior commandBehavior,
+            params NpgsqlParameter[] parem)
         {
             return await SqlExecuteReaderAsync(sql, false, commandBehavior, CancellationToken.None, parem);
         }
@@ -491,8 +489,8 @@ namespace ZYSQL
         /// <param name="commandBehavior"></param>
         /// <param name="parem">参数</param>
         /// <returns></returns>
-        public async Task<SqlDataReader> SqlExecuteReaderAsync(string sql, CommandBehavior commandBehavior, CancellationToken canToken,
-            params SqlParameter[] parem)
+        public async Task<DbDataReader> SqlExecuteReaderAsync(string sql, CommandBehavior commandBehavior, CancellationToken canToken,
+            params NpgsqlParameter[] parem)
         {
             return await SqlExecuteReaderAsync(sql, false, commandBehavior, CancellationToken.None, parem);
         }
@@ -505,8 +503,8 @@ namespace ZYSQL
         /// <param name="parem">参数</param>
         /// <param name="bolIsProcedure">是否存储过程</param>
         /// <returns></returns>
-        public async Task<SqlDataReader> SqlExecuteReaderAsync(string sql, bool bolIsProcedure, CommandBehavior commandBehavior,CancellationToken canToken,
-            params SqlParameter[] parem)
+        public async Task<DbDataReader> SqlExecuteReaderAsync(string sql, bool bolIsProcedure, CommandBehavior commandBehavior,CancellationToken canToken,
+            params NpgsqlParameter[] parem)
         {
 
             Command.CommandText = sql;
@@ -549,7 +547,7 @@ namespace ZYSQL
         /// <param name="sql">SQL语句</param>
         /// <param name="parem">参数</param>
         /// <returns></returns>
-        public object SqlExecuteScalar(string sql, params SqlParameter[] parem)
+        public object SqlExecuteScalar(string sql, params NpgsqlParameter[] parem)
         {
             return SqlExecuteScalar(sql, false, parem);
         }
@@ -561,7 +559,7 @@ namespace ZYSQL
         /// <param name="parem">参数</param>
         /// <param name="bolIsProcedure">是否存储过程</param>
         /// <returns></returns>
-        public object SqlExecuteScalar(string sql, bool bolIsProcedure, params SqlParameter[] parem)
+        public object SqlExecuteScalar(string sql, bool bolIsProcedure, params NpgsqlParameter[] parem)
         {
             lock (_lockThis)
             {
@@ -625,7 +623,7 @@ namespace ZYSQL
         /// <param name="sql">SQL语句</param>
         /// <param name="parem">参数</param>
         /// <returns></returns>
-        public async Task<object> SqlExecuteScalarAsync(string sql, params SqlParameter[] parem)
+        public async Task<object> SqlExecuteScalarAsync(string sql, params NpgsqlParameter[] parem)
         {
             return await SqlExecuteScalarAsync(sql, false, CancellationToken.None, parem);
         }
@@ -636,7 +634,7 @@ namespace ZYSQL
         /// <param name="sql">SQL语句</param>
         /// <param name="parem">参数</param>
         /// <returns></returns>
-        public async Task<object> SqlExecuteScalarAsync(string sql, CancellationToken canToken, params SqlParameter[] parem)
+        public async Task<object> SqlExecuteScalarAsync(string sql, CancellationToken canToken, params NpgsqlParameter[] parem)
         {
             return await SqlExecuteScalarAsync(sql, false, canToken, parem);
         }
@@ -648,7 +646,7 @@ namespace ZYSQL
         /// <param name="parem">参数</param>
         /// <param name="bolIsProcedure">是否存储过程</param>
         /// <returns></returns>
-        public async Task<object> SqlExecuteScalarAsync(string sql, bool bolIsProcedure, CancellationToken canToken, params SqlParameter[] parem)
+        public async Task<object> SqlExecuteScalarAsync(string sql, bool bolIsProcedure, CancellationToken canToken, params NpgsqlParameter[] parem)
         {
 
             Command.CommandText = sql;
@@ -680,7 +678,7 @@ namespace ZYSQL
         /// <param name="sql">SQL语句</param>
         /// <param name="parem">参数</param>
         /// <returns></returns>
-        public DataSet SqlExcuteDataSet(string sql, params SqlParameter[] parem)
+        public DataSet SqlExcuteDataSet(string sql, params NpgsqlParameter[] parem)
         {
             return SqlExcuteDataSet(sql, false, parem);
         }
@@ -692,7 +690,7 @@ namespace ZYSQL
         /// <param name="parem">参数</param>
         /// <param name="bolIsProcedure">是否是存储过程</param>
         /// <returns></returns>
-        public DataSet SqlExcuteDataSet(string sql, bool bolIsProcedure, params SqlParameter[] parem)
+        public DataSet SqlExcuteDataSet(string sql, bool bolIsProcedure, params NpgsqlParameter[] parem)
         {
             return SqlExcuteDataSet(sql, "this", bolIsProcedure, parem);
         }
@@ -706,7 +704,7 @@ namespace ZYSQL
         /// <param name="parem">参数</param>
         /// <param name="bolIsProcedure">是否是存储过程</param>
         /// <returns></returns>
-        public DataSet SqlExcuteDataSet(string sql, string tablename, bool bolIsProcedure, params SqlParameter[] parem)
+        public DataSet SqlExcuteDataSet(string sql, string tablename, bool bolIsProcedure, params NpgsqlParameter[] parem)
         {
             lock (_lockThis)
             {
@@ -716,7 +714,7 @@ namespace ZYSQL
                     Command.Parameters.AddRange(parem);
                 Command.CommandType = bolIsProcedure ? CommandType.StoredProcedure : CommandType.Text;
 
-                var adapter = new SqlDataAdapter(Command);
+                var adapter = new NpgsqlDataAdapter(Command);
 
                 var dataset = new DataSet();
 
@@ -792,7 +790,7 @@ namespace ZYSQL
         /// <param name="sql">SQL语句</param>
         /// <param name="parem">参数</param>
         /// <returns>对象集合</returns>
-        public List<T> SqlExcuteSelectObject<T>(string sql, params SqlParameter[] parem) where T : class, new()
+        public List<T> SqlExcuteSelectObject<T>(string sql, params NpgsqlParameter[] parem) where T : class, new()
         {
             return SqlExcuteSelectObject<T>(sql, false, null, parem);
         }
@@ -805,7 +803,7 @@ namespace ZYSQL
         /// <param name="tablename"></param>
         /// <param name="parem"></param>
         /// <returns></returns>
-        public List<T> SqlExcuteSelectObject<T>(string sql, string tablename, params SqlParameter[] parem)
+        public List<T> SqlExcuteSelectObject<T>(string sql, string tablename, params NpgsqlParameter[] parem)
             where T : class, new()
         {
             return SqlExcuteSelectObject<T>(sql, false, tablename, parem);
@@ -820,7 +818,7 @@ namespace ZYSQL
         /// <param name="parem">参数</param>
         /// <param name="bolIsProcedure">是否为存储过程</param>
         /// <returns>对象集合</returns>
-        public List<T> SqlExcuteSelectObject<T>(string sql, bool bolIsProcedure, params SqlParameter[] parem)
+        public List<T> SqlExcuteSelectObject<T>(string sql, bool bolIsProcedure, params NpgsqlParameter[] parem)
             where T : class, new()
         {
             T b;
@@ -837,7 +835,7 @@ namespace ZYSQL
         /// <param name="bolIsProcedure">是否为存储过程</param>
         /// <returns>对象集合</returns>
         public List<T> SqlExcuteSelectObject<T>(string sql, bool bolIsProcedure, string tableName,
-            params SqlParameter[] parem) where T : class,new()
+            params NpgsqlParameter[] parem) where T : class,new()
         {
             T b;
             return SqlExcuteSelectObject(sql, bolIsProcedure, out b, tableName, parem);
@@ -852,7 +850,7 @@ namespace ZYSQL
         /// <param name="obj">返回第一个对象</param>
         /// <param name="parem">参数</param>
         /// <returns></returns>
-        public List<T> SqlExcuteSelectObject<T>(string sql, out T obj, params SqlParameter[] parem) where T : class,new()
+        public List<T> SqlExcuteSelectObject<T>(string sql, out T obj, params NpgsqlParameter[] parem) where T : class,new()
         {
             return SqlExcuteSelectObject(sql, false, out obj, null, parem);
         }
@@ -865,7 +863,7 @@ namespace ZYSQL
         /// <param name="first">返回第一个对象</param>
         /// <param name="parem">参数</param>
         /// <returns>结果数量</returns>
-        public T SqlExcuteSelectFirst<T>(string sql, params SqlParameter[] parem) where T : class,new()
+        public T SqlExcuteSelectFirst<T>(string sql, params NpgsqlParameter[] parem) where T : class,new()
         {
             T first =null;
 
@@ -889,7 +887,7 @@ namespace ZYSQL
         /// <param name="tableName">表名</param>
         /// <param name="parem">参数</param>
         /// <returns></returns>
-        public List<T> SqlExcuteSelectObject<T>(string sql, out T first, string tableName, params SqlParameter[] parem)
+        public List<T> SqlExcuteSelectObject<T>(string sql, out T first, string tableName, params NpgsqlParameter[] parem)
             where T : class, new()
         {
             return SqlExcuteSelectObject(sql, false, out first, tableName, parem);
@@ -919,11 +917,12 @@ namespace ZYSQL
         /// <param name="obj">填充对象</param>
         /// <returns>对象集合</returns>
         public List<T> SqlExcuteSelectObject<T>(string sql, bool bolIsProcedure, out T obj, string tablename,
-            params SqlParameter[] parem) where T : class,new()
+            params NpgsqlParameter[] parem) where T : class,new()
         {
             lock (_lockThis)
             {
-               
+             
+
                 Command.CommandText = sql;
                 Command.Parameters.Clear();
                 if (parem != null)
@@ -999,7 +998,7 @@ namespace ZYSQL
         /// <param name="sql">SQL语句</param>
         /// <param name="parem">参数</param>
         /// <returns>对象集合</returns>
-        public async Task<List<T>> SqlExcuteSelectObjectAsync<T>(string sql, params SqlParameter[] parem) where T : class, new()
+        public async Task<List<T>> SqlExcuteSelectObjectAsync<T>(string sql, params NpgsqlParameter[] parem) where T : class, new()
         {
             return await SqlExcuteSelectObjectAsync<T>(sql,false, CancellationToken.None, parem);
         }
@@ -1012,7 +1011,7 @@ namespace ZYSQL
         /// <param name="tablename"></param>
         /// <param name="parem"></param>
         /// <returns></returns>
-        public async Task<List<T>> SqlExcuteSelectObjectAsync<T>(string sql, CancellationToken canToken, params SqlParameter[] parem)
+        public async Task<List<T>> SqlExcuteSelectObjectAsync<T>(string sql, CancellationToken canToken, params NpgsqlParameter[] parem)
             where T : class, new()
         {
             return await SqlExcuteSelectObjectAsync<T>(sql, false, canToken, parem);
@@ -1029,10 +1028,11 @@ namespace ZYSQL
         /// <param name="first">返回第一个对象</param>
         /// <param name="parem">参数</param>
         /// <returns>结果数量</returns>
-        public async Task<T> SqlExcuteSelectFirstAsync<T>(string sql, params SqlParameter[] parem) where T : class, new()
+        public async Task<T> SqlExcuteSelectFirstAsync<T>(string sql, params NpgsqlParameter[] parem) where T : class, new()
         {
-            return (await SqlExcuteSelectObjectAsync<T>(sql, false, CancellationToken.None, parem)).FirstOrDefault<T>();
-         
+           return (await SqlExcuteSelectObjectAsync<T>(sql, false, CancellationToken.None, parem)).FirstOrDefault<T>();
+
+           
         }
 
         /// <summary>
@@ -1043,9 +1043,12 @@ namespace ZYSQL
         /// <param name="first">返回第一个对象</param>
         /// <param name="parem">参数</param>
         /// <returns>结果数量</returns>
-        public async Task<T> SqlExcuteSelectFirstAsync<T>(string sql, CancellationToken token, params SqlParameter[] parem) where T : class, new()
+        public async Task<T> SqlExcuteSelectFirstAsync<T>(string sql, CancellationToken token, params NpgsqlParameter[] parem) where T : class, new()
         {
-            return (await SqlExcuteSelectObjectAsync<T>(sql, false, token, parem)).FirstOrDefault<T>();      
+           
+
+            return  (await SqlExcuteSelectObjectAsync<T>(sql, false, token, parem)).FirstOrDefault<T>();
+
         }
 
 
@@ -1059,7 +1062,7 @@ namespace ZYSQL
         /// <param name="parem">参数</param>
         /// <param name="bolIsProcedure">是否为存储过程</param>
         /// <returns>对象集合</returns>
-        public async Task<List<T>> SqlExcuteSelectObjectAsync<T>(string sql, bool bolIsProcedure, params SqlParameter[] parem) where T : class, new()
+        public async Task<List<T>> SqlExcuteSelectObjectAsync<T>(string sql, bool bolIsProcedure, params NpgsqlParameter[] parem) where T : class, new()
         {           
             return await SqlExcuteSelectObjectAsync<T>(sql, bolIsProcedure, CancellationToken.None, parem);
         }
@@ -1076,7 +1079,7 @@ namespace ZYSQL
         /// <param name="bolIsProcedure">是否为存储过程</param>
         /// <param name="obj">填充对象</param>
         /// <returns>对象集合</returns>
-        public async Task<List<T>> SqlExcuteSelectObjectAsync<T>(string sql, bool bolIsProcedure, CancellationToken canToken,params SqlParameter[] parem) where T : class, new()
+        public async Task<List<T>> SqlExcuteSelectObjectAsync<T>(string sql, bool bolIsProcedure, CancellationToken canToken,params NpgsqlParameter[] parem) where T : class, new()
         {
 
             Command.CommandText = sql;

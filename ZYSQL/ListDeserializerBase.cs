@@ -43,5 +43,14 @@ namespace ZYSQL
                 return func(dataRead);
             }
         }
+
+        protected async Task<List<T>> DeserializerAsync<T>(Npgsql.NpgsqlCommand command, CancellationToken canToken) where T : new()
+        {
+            using (var dataRead = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess | CommandBehavior.SingleResult, canToken))
+            {
+                var func = DeserializerManager.GetInstance().GetFuncForType<T>(dataRead);
+                return func(dataRead);
+            }
+        }
     }
 }

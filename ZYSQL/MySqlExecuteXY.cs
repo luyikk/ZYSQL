@@ -7,6 +7,7 @@ using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
+using System.Linq;
 
 namespace ZYSQL
 {
@@ -1018,17 +1019,14 @@ namespace ZYSQL
             params MySqlParameter[] parem) where T : class,new()
         {
             lock (_lockThis)
-            {
-                obj = new T();
-
+            {               
                 Command.CommandText = sql;
                 Command.Parameters.Clear();
                 if (parem != null)
                     Command.Parameters.AddRange(parem);
                 Command.CommandType = bolIsProcedure ? CommandType.StoredProcedure : CommandType.Text;
                 var objList = Deserializer<T>(Command);
-                if (objList.Count > 0)
-                    obj = objList[0];
+                obj = objList.FirstOrDefault<T>();
                 return objList;
             }
         }
@@ -1129,12 +1127,7 @@ namespace ZYSQL
         /// <returns>结果数量</returns>
         public async Task<T> SqlExcuteSelectFirstAsync<T>(string sql, params MySqlParameter[] parem) where T : class, new()
         {
-            var i = (await SqlExcuteSelectObjectAsync<T>(sql, false, CancellationToken.None, parem));
-
-            if (i.Count > 0)            
-                return i[0];            
-            else
-                return null;
+            return  (await SqlExcuteSelectObjectAsync<T>(sql, false, CancellationToken.None, parem)).FirstOrDefault<T>();            
         }
 
         /// <summary>
@@ -1147,16 +1140,9 @@ namespace ZYSQL
         /// <returns>结果数量</returns>
         public async Task<T> SqlExcuteSelectFirstAsync<T>(string sql, CancellationToken token, params MySqlParameter[] parem) where T : class, new()
         {
-            T first = null;
+            
+            return (await SqlExcuteSelectObjectAsync<T>(sql, false, token, parem)).FirstOrDefault<T>();
 
-            var i = (await SqlExcuteSelectObjectAsync<T>(sql, false, token, parem)).Count;
-
-            if (i > 0)
-            {
-                return first;
-            }
-            else
-                return null;
         }
 
 
