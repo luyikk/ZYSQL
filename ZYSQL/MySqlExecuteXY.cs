@@ -305,9 +305,9 @@ namespace ZYSQL
         /// <param name="parem">参数</param>
         /// <param name="cannToken">CancellationToken</param>
         /// <returns></returns>
-        public async Task<int> SqlExecuteNonQueryAsync(string sql, bool bolIsProcedure, params MySqlParameter[] parem)
+        public async Task<int> SqlExecuteNonQueryAsync(string sql, bool bolIsProcedure=false, params MySqlParameter[] parem)
         {
-            return await SqlExecuteNonQueryAsync(sql, false, CancellationToken.None, parem);
+            return await SqlExecuteNonQueryAsync(sql, bolIsProcedure, CancellationToken.None, parem);
         }
 
         /// <summary>
@@ -465,7 +465,7 @@ namespace ZYSQL
         /// <returns></returns>
         public async Task<DbDataReader> SqlExecuteReaderAsync(string sql, bool bolIsProcedure, CancellationToken canToken )
         {
-            return await SqlExecuteReaderAsync(sql, bolIsProcedure, CommandBehavior.Default, CancellationToken.None, null);
+            return await SqlExecuteReaderAsync(sql, bolIsProcedure, CommandBehavior.Default, canToken, null);
         }
 
 
@@ -490,10 +490,10 @@ namespace ZYSQL
         /// <param name="commandBehavior"></param>
         /// <param name="parem">参数</param>
         /// <returns></returns>
-        public async Task<DbDataReader> SqlExecuteReaderAsync(string sql, CommandBehavior commandBehavior, CancellationToken canToken,
+        public async Task<DbDataReader> SqlExecuteReaderAsync(string sql, CommandBehavior commandBehavior, CancellationToken canToken=default,
             params MySqlParameter[] parem)
         {
-            return await SqlExecuteReaderAsync(sql, false, commandBehavior, CancellationToken.None, parem);
+            return await SqlExecuteReaderAsync(sql, false, commandBehavior, canToken, parem);
         }
 
         /// <summary>
@@ -842,17 +842,6 @@ namespace ZYSQL
             return SqlExcuteSelectObject<T>(sql, false);
         }
 
-        /// <summary>
-        ///     更具对象读取表数据填充对象,并返回此类的集合
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="sql"></param>
-        /// <param name="tablename"></param>
-        /// <returns></returns>
-        public List<T> SqlExcuteSelectObject<T>(string sql, string tablename) where T : class, new()
-        {
-            return SqlExcuteSelectObject<T>(sql, tablename, false);
-        }
 
 
         /// <summary>
@@ -864,22 +853,10 @@ namespace ZYSQL
         /// <returns>对象集合</returns>
         public List<T> SqlExcuteSelectObject<T>(string sql, bool bolIsProcedure) where T : class, new()
         {
-            return SqlExcuteSelectObject<T>(sql, bolIsProcedure, "", null);
+            return SqlExcuteSelectObject<T>(sql, bolIsProcedure, null);
         }
 
 
-        /// <summary>
-        ///     更具对象读取表数据填充对象,并返回此类的集合
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="sql"></param>
-        /// <param name="tablename"></param>
-        /// <param name="bolIsProcedure"></param>
-        /// <returns></returns>
-        public List<T> SqlExcuteSelectObject<T>(string sql, string tablename, bool bolIsProcedure) where T : class, new()
-        {
-            return SqlExcuteSelectObject<T>(sql, bolIsProcedure, tablename, null);
-        }
 
 
         /// <summary>
@@ -891,22 +868,10 @@ namespace ZYSQL
         /// <returns>对象集合</returns>
         public List<T> SqlExcuteSelectObject<T>(string sql, params MySqlParameter[] parem) where T : class, new()
         {
-            return SqlExcuteSelectObject<T>(sql, false, null, parem);
+            return SqlExcuteSelectObject<T>(sql, false, parem);
         }
 
-        /// <summary>
-        ///     更具对象读取表数据填充对象,并返回此类的集合
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="sql"></param>
-        /// <param name="tablename"></param>
-        /// <param name="parem"></param>
-        /// <returns></returns>
-        public List<T> SqlExcuteSelectObject<T>(string sql, string tablename, params MySqlParameter[] parem)
-            where T : class, new()
-        {
-            return SqlExcuteSelectObject<T>(sql, false, tablename, parem);
-        }
+
 
 
         /// <summary>
@@ -920,25 +885,9 @@ namespace ZYSQL
         public List<T> SqlExcuteSelectObject<T>(string sql, bool bolIsProcedure, params MySqlParameter[] parem)
             where T : class, new()
         {
-            T b;
-            return SqlExcuteSelectObject(sql, bolIsProcedure, out b, null, parem);
+            return SqlExcuteSelectObject(sql, bolIsProcedure, out T _,  parem);
         }
 
-        /// <summary>
-        ///     更具对象读取表数据填充对象,并返回此类的集合
-        /// </summary>
-        /// <typeparam name="T">类型</typeparam>
-        /// <param name="sql">SQL语句</param>
-        /// <param name="tableName">表名</param>
-        /// <param name="parem">参数</param>
-        /// <param name="bolIsProcedure">是否为存储过程</param>
-        /// <returns>对象集合</returns>
-        public List<T> SqlExcuteSelectObject<T>(string sql, bool bolIsProcedure, string tableName,
-            params MySqlParameter[] parem) where T : class,new()
-        {
-            T b;
-            return SqlExcuteSelectObject(sql, bolIsProcedure, out b, tableName, parem);
-        }
 
 
         /// <summary>
@@ -951,7 +900,7 @@ namespace ZYSQL
         /// <returns></returns>
         public List<T> SqlExcuteSelectObject<T>(string sql, out T obj, params MySqlParameter[] parem) where T : class,new()
         {
-            return SqlExcuteSelectObject(sql, false, out obj, null, parem);
+            return SqlExcuteSelectObject(sql, false, out obj, parem);
         }
 
         /// <summary>
@@ -964,9 +913,8 @@ namespace ZYSQL
         /// <returns>结果数量</returns>
         public T SqlExcuteSelectFirst<T>(string sql, params MySqlParameter[] parem) where T : class,new()
         {
-            T first =null;
 
-            var i=  SqlExcuteSelectObject(sql, false, out first, null, parem).Count;
+            var i = SqlExcuteSelectObject(sql, false, out T first, parem).Count;
 
             if (i > 0)
             {
@@ -977,20 +925,7 @@ namespace ZYSQL
         }
 
 
-        /// <summary>
-        ///     更具对象读取表数据填充对象,并返回此类的集合
-        /// </summary>
-        /// <typeparam name="T">类型</typeparam>
-        /// <param name="sql">SQL语句</param>
-        /// <param name="obj">返回第一个对象</param>
-        /// <param name="tableName">表名</param>
-        /// <param name="parem">参数</param>
-        /// <returns></returns>
-        public List<T> SqlExcuteSelectObject<T>(string sql, out T first, string tableName, params MySqlParameter[] parem)
-            where T : class, new()
-        {
-            return SqlExcuteSelectObject(sql, false, out first, tableName, parem);
-        }
+    
 
 
         /// <summary>
@@ -1015,7 +950,7 @@ namespace ZYSQL
         /// <param name="bolIsProcedure">是否为存储过程</param>
         /// <param name="obj">填充对象</param>
         /// <returns>对象集合</returns>
-        public List<T> SqlExcuteSelectObject<T>(string sql, bool bolIsProcedure, out T obj, string tablename,
+        public List<T> SqlExcuteSelectObject<T>(string sql, bool bolIsProcedure, out T obj, 
             params MySqlParameter[] parem) where T : class,new()
         {
             lock (_lockThis)

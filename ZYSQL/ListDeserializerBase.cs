@@ -4,6 +4,8 @@ using System.Data;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Data.SQLite;
+
 namespace ZYSQL
 {
     public abstract class ListDeserializerBase
@@ -45,6 +47,15 @@ namespace ZYSQL
         }
 
         protected async Task<List<T>> DeserializerAsync<T>(Npgsql.NpgsqlCommand command, CancellationToken canToken) where T : new()
+        {
+            using (var dataRead = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess | CommandBehavior.SingleResult, canToken))
+            {
+                var func = DeserializerManager.GetInstance().GetFuncForType<T>(dataRead);
+                return func(dataRead);
+            }
+        }
+
+        protected async Task<List<T>> DeserializerAsync<T>(SQLiteCommand command, CancellationToken canToken) where T : new()
         {
             using (var dataRead = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess | CommandBehavior.SingleResult, canToken))
             {

@@ -6,6 +6,7 @@ using System.Configuration;
 using System.Data;
 using System.Data.Odbc;
 using System.Data.SqlClient;
+using System.Data.SQLite;
 
 namespace ZYSQL
 {
@@ -82,6 +83,8 @@ namespace ZYSQL
         private ObjectPool<System.Data.Odbc.OdbcCommand> OdbcCommandPool;
         private Dictionary<string, ObjectPool<Npgsql.NpgsqlConnection>> NpgsqlConnPool;
         private ObjectPool<Npgsql.NpgsqlCommand> NpgsqlCommandPool;
+        private Dictionary<string, ObjectPool<System.Data.SQLite.SQLiteConnection>> SQLiteConnPool;
+        private ObjectPool<System.Data.SQLite.SQLiteCommand> SQLiteCommandPool;
 
 
         private SqlInstance()
@@ -121,6 +124,12 @@ namespace ZYSQL
                         NpgsqlCommandPool = cmdpool;
                     });
 
+                    SQLiteServerInstance(configuration, (connpool, cmdpool) =>
+                    {
+                        SQLiteConnPool = connpool;
+                        SQLiteCommandPool = cmdpool;
+                    });
+
                     IsInstall = true;
                 }
                 else
@@ -152,6 +161,11 @@ namespace ZYSQL
                     var ConnPool4 = GetNpgsqlConnInstance();
                     if (ConnPool4.Count > 0)
                         GetNpgsqlCommandInstance();
+
+
+                    var ConnPool5 = GetSQLiteConnInstance();
+                    if (ConnPool5.Count > 0)
+                        GetSQLiteCommandInstance();
 
                     IsInstall = true;
                 }
@@ -279,15 +293,17 @@ namespace ZYSQL
             {
                 if (MySqlCommandPool == null)
                 {
-                    MySqlCommandPool = new ObjectPool<MySql.Data.MySqlClient.MySqlCommand>(maxCount);
-                    MySqlCommandPool.ReleaseObjectRunTime = new ObjectPool<MySql.Data.MySqlClient.MySqlCommand>.ObjectRunTimeHandle((command, pool) =>
+                    MySqlCommandPool = new ObjectPool<MySql.Data.MySqlClient.MySqlCommand>(maxCount)
                     {
-                        command.CommandText = "";
-                        command.Connection = null;
-                        command.CommandType = CommandType.Text;
-                        command.Parameters.Clear();
-                        return command;
-                    });
+                        ReleaseObjectRunTime = new ObjectPool<MySql.Data.MySqlClient.MySqlCommand>.ObjectRunTimeHandle((command, pool) =>
+                        {
+                            command.CommandText = "";
+                            command.Connection = null;
+                            command.CommandType = CommandType.Text;
+                            command.Parameters.Clear();
+                            return command;
+                        })
+                    };
 
                 }
             }
@@ -341,32 +357,33 @@ namespace ZYSQL
 
                         }
 
-                        ObjectPool<MySql.Data.MySqlClient.MySqlConnection> temp = new ObjectPool<MySql.Data.MySqlClient.MySqlConnection>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]));
-
-                        temp.TheConstructor = typeof(MySql.Data.MySqlClient.MySqlConnection).GetConstructor(new Type[] { typeof(string) });
-
-                        temp.Param = new object[] { connectionstring };
-
-                        temp.GetObjectRunTime = new ObjectPool<MySql.Data.MySqlClient.MySqlConnection>.ObjectRunTimeHandle((conn, pool) =>
+                        ObjectPool<MySql.Data.MySqlClient.MySqlConnection> temp = new ObjectPool<MySql.Data.MySqlClient.MySqlConnection>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]))
                         {
-                            try
+                            TheConstructor = typeof(MySql.Data.MySqlClient.MySqlConnection).GetConstructor(new Type[] { typeof(string) }),
+
+                            Param = new object[] { connectionstring },
+
+                            GetObjectRunTime = new ObjectPool<MySql.Data.MySqlClient.MySqlConnection>.ObjectRunTimeHandle((conn, pool) =>
                             {
-                                conn.Open();
+                                try
+                                {
+                                    conn.Open();
+                                    return conn;
+                                }
+                                catch (Exception e)
+                                {
+                                    LogOutMananger(e.Message, e);
+                                    return null;
+                                }
+                            }),
+
+                            ReleaseObjectRunTime = new ObjectPool<MySql.Data.MySqlClient.MySqlConnection>.ObjectRunTimeHandle((conn, pool) =>
+                            {
+                                conn.Close();
+
                                 return conn;
-                            }
-                            catch (Exception e)
-                            {
-                                LogOutMananger(e.Message, e);
-                                return null;
-                            }
-                        });
-
-                        temp.ReleaseObjectRunTime = new ObjectPool<MySql.Data.MySqlClient.MySqlConnection>.ObjectRunTimeHandle((conn, pool) =>
-                        {
-                            conn.Close();
-
-                            return conn;
-                        });
+                            })
+                        };
 
 
                         MySqlConnPool.Add(name, temp);
@@ -389,15 +406,17 @@ namespace ZYSQL
 
             if (MySqlCommandPool == null)
             {
-                MySqlCommandPool = new ObjectPool<MySql.Data.MySqlClient.MySqlCommand>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]) * (ConfigurationManager.ConnectionStrings.Count - 1));
-                MySqlCommandPool.ReleaseObjectRunTime = new ObjectPool<MySql.Data.MySqlClient.MySqlCommand>.ObjectRunTimeHandle((command, pool) =>
+                MySqlCommandPool = new ObjectPool<MySql.Data.MySqlClient.MySqlCommand>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]) * (ConfigurationManager.ConnectionStrings.Count - 1))
                 {
-                    command.CommandText = "";
-                    command.Connection = null;
-                    command.CommandType = CommandType.Text;
-                    command.Parameters.Clear();
-                    return command;
-                });
+                    ReleaseObjectRunTime = new ObjectPool<MySql.Data.MySqlClient.MySqlCommand>.ObjectRunTimeHandle((command, pool) =>
+                    {
+                        command.CommandText = "";
+                        command.Connection = null;
+                        command.CommandType = CommandType.Text;
+                        command.Parameters.Clear();
+                        return command;
+                    })
+                };
 
             }
             
@@ -521,15 +540,17 @@ namespace ZYSQL
             {
                 if (SqlCommandPool == null)
                 {
-                    SqlCommandPool = new ObjectPool<SqlCommand>(maxCount);
-                    SqlCommandPool.ReleaseObjectRunTime = new ObjectPool<SqlCommand>.ObjectRunTimeHandle((command, pool) =>
+                    SqlCommandPool = new ObjectPool<SqlCommand>(maxCount)
                     {
-                        command.CommandText = "";
-                        command.Connection = null;
-                        command.CommandType = CommandType.Text;
-                        command.Parameters.Clear();
-                        return command;
-                    });
+                        ReleaseObjectRunTime = new ObjectPool<SqlCommand>.ObjectRunTimeHandle((command, pool) =>
+                        {
+                            command.CommandText = "";
+                            command.Connection = null;
+                            command.CommandType = CommandType.Text;
+                            command.Parameters.Clear();
+                            return command;
+                        })
+                    };
 
                 }
             }
@@ -584,32 +605,33 @@ namespace ZYSQL
 
                         }
 
-                        ObjectPool<SqlConnection> temp = new ObjectPool<SqlConnection>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]));
-
-                        temp.TheConstructor = typeof(SqlConnection).GetConstructor(new Type[] { typeof(string) });
-
-                        temp.Param = new object[] { connectionstring };
-
-                        temp.GetObjectRunTime = new ObjectPool<SqlConnection>.ObjectRunTimeHandle((conn, pool) =>
+                        ObjectPool<SqlConnection> temp = new ObjectPool<SqlConnection>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]))
                         {
-                            try
+                            TheConstructor = typeof(SqlConnection).GetConstructor(new Type[] { typeof(string) }),
+
+                            Param = new object[] { connectionstring },
+
+                            GetObjectRunTime = new ObjectPool<SqlConnection>.ObjectRunTimeHandle((conn, pool) =>
                             {
-                                conn.Open();
+                                try
+                                {
+                                    conn.Open();
+                                    return conn;
+                                }
+                                catch (Exception e)
+                                {
+                                    LogOutMananger(e.Message, e);
+                                    return null;
+                                }
+                            }),
+
+                            ReleaseObjectRunTime = new ObjectPool<SqlConnection>.ObjectRunTimeHandle((conn, pool) =>
+                            {
+                                conn.Close();
+
                                 return conn;
-                            }
-                            catch (Exception e)
-                            {
-                                LogOutMananger(e.Message, e);
-                                return null;
-                            }
-                        });
-
-                        temp.ReleaseObjectRunTime = new ObjectPool<SqlConnection>.ObjectRunTimeHandle((conn, pool) =>
-                        {
-                            conn.Close();
-
-                            return conn;
-                        });
+                            })
+                        };
 
 
                         SqlConnPool.Add(name, temp);
@@ -632,15 +654,17 @@ namespace ZYSQL
 
             if (SqlCommandPool == null)
             {
-                SqlCommandPool = new ObjectPool<SqlCommand>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]) * (ConfigurationManager.ConnectionStrings.Count - 1));
-                SqlCommandPool.ReleaseObjectRunTime = new ObjectPool<SqlCommand>.ObjectRunTimeHandle((command, pool) =>
+                SqlCommandPool = new ObjectPool<SqlCommand>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]) * (ConfigurationManager.ConnectionStrings.Count - 1))
                 {
-                    command.CommandText = "";
-                    command.Connection = null;
-                    command.CommandType = CommandType.Text;
-                    command.Parameters.Clear();
-                    return command;
-                });
+                    ReleaseObjectRunTime = new ObjectPool<SqlCommand>.ObjectRunTimeHandle((command, pool) =>
+                    {
+                        command.CommandText = "";
+                        command.Connection = null;
+                        command.CommandType = CommandType.Text;
+                        command.Parameters.Clear();
+                        return command;
+                    })
+                };
 
             }
 
@@ -764,15 +788,17 @@ namespace ZYSQL
             {
                 if (OdbcCommandPool == null)
                 {
-                    OdbcCommandPool = new ObjectPool<OdbcCommand>(maxCount);
-                    OdbcCommandPool.ReleaseObjectRunTime = new ObjectPool<OdbcCommand>.ObjectRunTimeHandle((command, pool) =>
+                    OdbcCommandPool = new ObjectPool<OdbcCommand>(maxCount)
                     {
-                        command.CommandText = "";
-                        command.Connection = null;
-                        command.CommandType = CommandType.Text;
-                        command.Parameters.Clear();
-                        return command;
-                    });
+                        ReleaseObjectRunTime = new ObjectPool<OdbcCommand>.ObjectRunTimeHandle((command, pool) =>
+                        {
+                            command.CommandText = "";
+                            command.Connection = null;
+                            command.CommandType = CommandType.Text;
+                            command.Parameters.Clear();
+                            return command;
+                        })
+                    };
 
                 }
             }
@@ -828,32 +854,33 @@ namespace ZYSQL
 
                         }
 
-                        ObjectPool<OdbcConnection> temp = new ObjectPool<OdbcConnection>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]));
-
-                        temp.TheConstructor = typeof(OdbcConnection).GetConstructor(new Type[] { typeof(string) });
-
-                        temp.Param = new object[] { connectionstring };
-
-                        temp.GetObjectRunTime = new ObjectPool<OdbcConnection>.ObjectRunTimeHandle((conn, pool) =>
+                        ObjectPool<OdbcConnection> temp = new ObjectPool<OdbcConnection>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]))
                         {
-                            try
+                            TheConstructor = typeof(OdbcConnection).GetConstructor(new Type[] { typeof(string) }),
+
+                            Param = new object[] { connectionstring },
+
+                            GetObjectRunTime = new ObjectPool<OdbcConnection>.ObjectRunTimeHandle((conn, pool) =>
                             {
-                                conn.Open();
+                                try
+                                {
+                                    conn.Open();
+                                    return conn;
+                                }
+                                catch (Exception e)
+                                {
+                                    LogOutMananger(e.Message, e);
+                                    return null;
+                                }
+                            }),
+
+                            ReleaseObjectRunTime = new ObjectPool<OdbcConnection>.ObjectRunTimeHandle((conn, pool) =>
+                            {
+                                conn.Close();
+
                                 return conn;
-                            }
-                            catch (Exception e)
-                            {
-                                LogOutMananger(e.Message, e);
-                                return null;
-                            }
-                        });
-
-                        temp.ReleaseObjectRunTime = new ObjectPool<OdbcConnection>.ObjectRunTimeHandle((conn, pool) =>
-                        {
-                            conn.Close();
-
-                            return conn;
-                        });
+                            })
+                        };
 
 
                         OdbcConnPool.Add(name, temp);
@@ -876,15 +903,17 @@ namespace ZYSQL
 
             if (OdbcCommandPool == null)
             {
-                OdbcCommandPool = new ObjectPool<OdbcCommand>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]) * (ConfigurationManager.ConnectionStrings.Count - 1));
-                OdbcCommandPool.ReleaseObjectRunTime = new ObjectPool<OdbcCommand>.ObjectRunTimeHandle((command, pool) =>
+                OdbcCommandPool = new ObjectPool<OdbcCommand>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]) * (ConfigurationManager.ConnectionStrings.Count - 1))
                 {
-                    command.CommandText = "";
-                    command.Connection = null;
-                    command.CommandType = CommandType.Text;
-                    command.Parameters.Clear();
-                    return command;
-                });
+                    ReleaseObjectRunTime = new ObjectPool<OdbcCommand>.ObjectRunTimeHandle((command, pool) =>
+                    {
+                        command.CommandText = "";
+                        command.Connection = null;
+                        command.CommandType = CommandType.Text;
+                        command.Parameters.Clear();
+                        return command;
+                    })
+                };
 
             }
 
@@ -1009,15 +1038,17 @@ namespace ZYSQL
             {
                 if (NpgsqlCommandPool == null)
                 {
-                    NpgsqlCommandPool = new ObjectPool<NpgsqlCommand>(maxCount);
-                    NpgsqlCommandPool.ReleaseObjectRunTime = new ObjectPool<NpgsqlCommand>.ObjectRunTimeHandle((command, pool) =>
+                    NpgsqlCommandPool = new ObjectPool<NpgsqlCommand>(maxCount)
                     {
-                        command.CommandText = "";
-                        command.Connection = null;
-                        command.CommandType = CommandType.Text;
-                        command.Parameters.Clear();
-                        return command;
-                    });
+                        ReleaseObjectRunTime = new ObjectPool<NpgsqlCommand>.ObjectRunTimeHandle((command, pool) =>
+                        {
+                            command.CommandText = "";
+                            command.Connection = null;
+                            command.CommandType = CommandType.Text;
+                            command.Parameters.Clear();
+                            return command;
+                        })
+                    };
 
                 }
             }
@@ -1073,32 +1104,33 @@ namespace ZYSQL
 
                         }
 
-                        ObjectPool<NpgsqlConnection> temp = new ObjectPool<NpgsqlConnection>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]));
-
-                        temp.TheConstructor = typeof(NpgsqlConnection).GetConstructor(new Type[] { typeof(string) });
-
-                        temp.Param = new object[] { connectionstring };
-
-                        temp.GetObjectRunTime = new ObjectPool<NpgsqlConnection>.ObjectRunTimeHandle((conn, pool) =>
+                        ObjectPool<NpgsqlConnection> temp = new ObjectPool<NpgsqlConnection>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]))
                         {
-                            try
+                            TheConstructor = typeof(NpgsqlConnection).GetConstructor(new Type[] { typeof(string) }),
+
+                            Param = new object[] { connectionstring },
+
+                            GetObjectRunTime = new ObjectPool<NpgsqlConnection>.ObjectRunTimeHandle((conn, pool) =>
                             {
-                                conn.Open();
+                                try
+                                {
+                                    conn.Open();
+                                    return conn;
+                                }
+                                catch (Exception e)
+                                {
+                                    LogOutMananger(e.Message, e);
+                                    return null;
+                                }
+                            }),
+
+                            ReleaseObjectRunTime = new ObjectPool<NpgsqlConnection>.ObjectRunTimeHandle((conn, pool) =>
+                            {
+                                conn.Close();
+
                                 return conn;
-                            }
-                            catch (Exception e)
-                            {
-                                LogOutMananger(e.Message, e);
-                                return null;
-                            }
-                        });
-
-                        temp.ReleaseObjectRunTime = new ObjectPool<NpgsqlConnection>.ObjectRunTimeHandle((conn, pool) =>
-                        {
-                            conn.Close();
-
-                            return conn;
-                        });
+                            })
+                        };
 
 
                         NpgsqlConnPool.Add(name, temp);
@@ -1121,19 +1153,272 @@ namespace ZYSQL
 
             if (NpgsqlCommandPool == null)
             {
-                NpgsqlCommandPool = new ObjectPool<NpgsqlCommand>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]) * (ConfigurationManager.ConnectionStrings.Count - 1));
-                NpgsqlCommandPool.ReleaseObjectRunTime = new ObjectPool<NpgsqlCommand>.ObjectRunTimeHandle((command, pool) =>
+                NpgsqlCommandPool = new ObjectPool<NpgsqlCommand>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]) * (ConfigurationManager.ConnectionStrings.Count - 1))
                 {
-                    command.CommandText = "";
-                    command.Connection = null;
-                    command.CommandType = CommandType.Text;
-                    command.Parameters.Clear();
-                    return command;
-                });
+                    ReleaseObjectRunTime = new ObjectPool<NpgsqlCommand>.ObjectRunTimeHandle((command, pool) =>
+                    {
+                        command.CommandText = "";
+                        command.Connection = null;
+                        command.CommandType = CommandType.Text;
+                        command.Parameters.Clear();
+                        return command;
+                    })
+                };
 
             }
 
             return NpgsqlCommandPool;
+        }
+
+
+        #endregion
+        #endregion
+
+
+
+        #region SQLite
+
+
+        public Dictionary<string, ObjectPool<SQLiteConnection>> GetSQLiteConnectionPool()
+        {
+            return SQLiteConnPool;
+        }
+
+        public ObjectPool<SQLiteCommand> GetSQLiteCommandPool()
+        {
+            return SQLiteCommandPool;
+        }
+
+        #region configObj
+        public void SQLiteServerInstance(IEnumerable<DataConnectConfig> configuration, Action<Dictionary<string, ObjectPool<SQLiteConnection>>, ObjectPool<SQLiteCommand>> action)
+        {
+            var ConnPool = GetSQLiteConnInstance(configuration, out int cmdPoolCount);
+            var ConnCmd = GetSQLiteCommandInstance(cmdPoolCount);
+            action(ConnPool, ConnCmd);
+        }
+
+
+        /// <summary>
+        /// 返回SQLiteConn
+        /// </summary>
+        /// <returns></returns>
+        private Dictionary<string, ObjectPool<SQLiteConnection>> GetSQLiteConnInstance(IEnumerable<DataConnectConfig> configuration, out int cmdPoolCount)
+        {
+
+            cmdPoolCount = -1;
+
+            try
+            {
+                if (SQLiteConnPool == null)
+                {
+                    SQLiteConnPool = new Dictionary<string, ObjectPool<SQLiteConnection>>();
+
+                    foreach (var ar in configuration)
+                    {
+                        if (ar.SqlType.Equals("SQLite", StringComparison.OrdinalIgnoreCase))
+                        {
+                            string name = ar.Name;
+                            string connectionstring = ar.ConnectionString;
+                            if (ar.MaxCount == 0)
+                                ar.MaxCount = 1;
+
+
+                            if (ar.IsEncode)
+                                connectionstring = DeCodeConn(connectionstring);
+
+
+                            ObjectPool<SQLiteConnection> temp = new ObjectPool<SQLiteConnection>(ar.MaxCount);
+
+                            cmdPoolCount += ar.MaxCount;
+
+                            temp.TheConstructor = typeof(SQLiteConnection).GetConstructor(new Type[] { typeof(string) });
+
+                            temp.Param = new object[] { connectionstring };
+
+                            temp.GetObjectRunTime = new ObjectPool<SQLiteConnection>.ObjectRunTimeHandle((conn, pool) =>
+                            {
+                                try
+                                {
+                                    conn.Open();
+                                    return conn;
+                                }
+                                catch (Exception e)
+                                {
+                                    LogOutMananger(e.Message, e);
+                                    return null;
+                                }
+                            });
+
+                            temp.ReleaseObjectRunTime = new ObjectPool<SQLiteConnection>.ObjectRunTimeHandle((conn, pool) =>
+                            {
+                                conn.Close();
+
+                                return conn;
+                            });
+
+
+                            SQLiteConnPool.Add(name, temp);
+                        }
+                    }
+
+
+                }
+            }
+            catch (Exception er)
+            {
+                LogOutMananger("初始化Config失败，请检查Config配置：" + er.Message, SQLiteConnPool);
+            }
+
+
+
+            return SQLiteConnPool;
+        }
+
+
+        /// <summary>
+        /// 返回SQLiteCommand对象
+        /// </summary>
+        /// <returns></returns>
+        private ObjectPool<SQLiteCommand> GetSQLiteCommandInstance(int maxCount)
+        {
+
+
+            if (maxCount <= 0)
+                return null;
+            try
+            {
+                if (SQLiteCommandPool == null)
+                {
+                    SQLiteCommandPool = new ObjectPool<SQLiteCommand>(maxCount)
+                    {
+                        ReleaseObjectRunTime = new ObjectPool<SQLiteCommand>.ObjectRunTimeHandle((command, pool) =>
+                        {
+                            command.CommandText = "";
+                            command.Connection = null;
+                            command.CommandType = CommandType.Text;
+                            command.Parameters.Clear();
+                            return command;
+                        })
+                    };
+
+                }
+            }
+            catch (Exception er)
+            {
+                LogOutMananger("初始化Config失败，请检查Config配置：" + er.Message, SQLiteConnPool);
+            }
+
+
+
+            return SQLiteCommandPool;
+        }
+
+        #endregion
+
+
+        #region ConfigApp.Config
+
+
+
+        /// <summary>
+        /// 返回SQLiteConn
+        /// </summary>
+        /// <returns></returns>
+        public Dictionary<string, ObjectPool<SQLiteConnection>> GetSQLiteConnInstance()
+        {
+
+            if (SQLiteConnPool == null)
+            {
+                SQLiteConnPool = new Dictionary<string, ObjectPool<SQLiteConnection>>();
+
+                foreach (ConnectionStringSettings ar in ConfigurationManager.ConnectionStrings)
+                {
+
+                    if (ar.ProviderName.Equals("SQLiteClient", StringComparison.CurrentCulture))
+                    {
+                        string name = ar.Name;
+                        string connectionstring = ar.ConnectionString;
+
+                        if (name.IndexOf(":") > 0)
+                        {
+                            string[] sp = name.Split(new char[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
+
+                            if (sp.Length == 2)
+                            {
+                                name = sp[0];
+
+                                if (sp[1].ToUpper() == "ENCODE")
+                                {
+                                    connectionstring = DeCodeConn(connectionstring);
+                                }
+                            }
+
+                        }
+
+                        ObjectPool<SQLiteConnection> temp = new ObjectPool<SQLiteConnection>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]))
+                        {
+                            TheConstructor = typeof(SQLiteConnection).GetConstructor(new Type[] { typeof(string) }),
+
+                            Param = new object[] { connectionstring },
+
+                            GetObjectRunTime = new ObjectPool<SQLiteConnection>.ObjectRunTimeHandle((conn, pool) =>
+                            {
+                                try
+                                {
+                                    conn.Open();
+                                    return conn;
+                                }
+                                catch (Exception e)
+                                {
+                                    LogOutMananger(e.Message, e);
+                                    return null;
+                                }
+                            }),
+
+                            ReleaseObjectRunTime = new ObjectPool<SQLiteConnection>.ObjectRunTimeHandle((conn, pool) =>
+                            {
+                                conn.Close();
+
+                                return conn;
+                            })
+                        };
+
+
+                        SQLiteConnPool.Add(name, temp);
+                    }
+                }
+            }
+
+
+            return SQLiteConnPool;
+        }
+
+
+        /// <summary>
+        /// 返回SQLiteCommand对象
+        /// </summary>
+        /// <returns></returns>
+        public ObjectPool<SQLiteCommand> GetSQLiteCommandInstance()
+        {
+
+
+            if (SQLiteCommandPool == null)
+            {
+                SQLiteCommandPool = new ObjectPool<SQLiteCommand>(int.Parse(ConfigurationManager.AppSettings["MaxCount"]) * (ConfigurationManager.ConnectionStrings.Count - 1))
+                {
+                    ReleaseObjectRunTime = new ObjectPool<SQLiteCommand>.ObjectRunTimeHandle((command, pool) =>
+                    {
+                        command.CommandText = "";
+                        command.Connection = null;
+                        command.CommandType = CommandType.Text;
+                        command.Parameters.Clear();
+                        return command;
+                    })
+                };
+
+            }
+
+            return SQLiteCommandPool;
         }
 
 
