@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq.Expressions;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 
@@ -57,7 +58,9 @@ namespace ZYSQL
             il.DefineLabel();
 
 
-            var props = type.GetProperties(BindingFlags.Instance | BindingFlags.Public);
+            var props = (from a in type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                         where a.CanWrite &&a.GetCustomAttribute<Ignore>()==null
+                         select a).ToArray();
 
 
             var proplable = new Label[props.Length];
