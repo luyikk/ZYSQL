@@ -73,11 +73,11 @@ namespace ZYSQL
             DbCommandPool = SqlInstance.Instance.GetNpgsqlCommandPool();
 
 
-            DbConn = DbConnPool["DefautConnectionString"].GetObject();
+            DbConn = DbConnPool["DefautConnection"].GetObject();
             if (DbConn == null)
                 throw new Exception("Sql Connection obj is NULL,Please Look LogOut ERROR Msg!!");
 
-            Key = "DefautConnectionString";
+            Key = "DefautConnection";
             Command = DbCommandPool.GetObject();
             Command.Connection = DbConn;
         }
