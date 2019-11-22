@@ -503,7 +503,7 @@ namespace ZYSQL
         /// <param name="parem">参数</param>
         /// <param name="bolIsProcedure">是否存储过程</param>
         /// <returns></returns>
-        public Task<DbDataReader> SqlExecuteReaderAsync(string sql, bool bolIsProcedure, CommandBehavior commandBehavior, CancellationToken canToken,
+        public async Task<DbDataReader> SqlExecuteReaderAsync(string sql, bool bolIsProcedure, CommandBehavior commandBehavior, CancellationToken canToken,
             params NpgsqlParameter[] parem)
         {
 
@@ -512,7 +512,7 @@ namespace ZYSQL
             if (parem != null)
                 Command.Parameters.AddRange(parem);
             Command.CommandType = bolIsProcedure ? CommandType.StoredProcedure : CommandType.Text;
-            return Command.ExecuteReaderAsync(commandBehavior, canToken);
+            return await Command.ExecuteReaderAsync(commandBehavior, canToken);
 
         }
 
