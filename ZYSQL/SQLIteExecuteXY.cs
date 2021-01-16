@@ -147,6 +147,7 @@ namespace ZYSQL
             if (TransStats == 1)
                 RollbackTrans();
 
+            TransStats = 0;
 
             if (isDispose)
             {
